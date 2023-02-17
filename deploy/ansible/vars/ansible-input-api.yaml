@@ -41,7 +41,7 @@ always_upload_jinja_templates:         true
 # SAP Configuration for templates and install
 hana_backup_path:                      /hana/backup
 aas_hostname:                          ""
-aas_instance_number:                   ""
+aas_instance_number:                   "05"
 sap_sid:                               ""                                      # REQUIRED - SAP Install
 download_basket_dir:                   "{{ target_media_location }}/download_basket"
 hdb_hostname:                          ""
