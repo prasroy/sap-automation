@@ -229,7 +229,7 @@ if ($confirmation -ne 'y') {
     Add-Content -Path $templatename "    - repository: sap-automation"
     Add-Content -Path $templatename "      type: git"
     Add-Content -Path $templatename "      name: $ADO_Project/sap-automation"
-    Add-Content -Path $templatename "      ref: refs/heads/experimental"
+    Add-Content -Path $templatename "      ref: refs/tags/v3.7.0.0"
 
     $cont = Get-Content -Path $templatename -Raw
 
@@ -277,7 +277,7 @@ if ($confirmation -ne 'y') {
     Add-Content -Path $templatename "    - repository: sap-automation"
     Add-Content -Path $templatename "      type: git"
     Add-Content -Path $templatename "      name: $ADO_Project/sap-automation"
-    Add-Content -Path $templatename "      ref: refs/heads/experimental"
+    Add-Content -Path $templatename "      ref: refs/tags/v3.7.0.0"
     Add-Content -Path $templatename "    - repository: sap-samples"
     Add-Content -Path $templatename "      type: git"
     Add-Content -Path $templatename "      name: $ADO_Project/sap-samples"
@@ -363,7 +363,7 @@ else {
   Add-Content -Path $templatename "      type: GitHub"
   Add-Content -Path $templatename -Value ("      endpoint: " + $ghConn)
   Add-Content -Path $templatename "      name: Azure/sap-automation"
-  Add-Content -Path $templatename "      ref: refs/heads/experimental"
+  Add-Content -Path $templatename "      ref: refs/heads/main"
 
   $cont = Get-Content -Path $templatename -Raw
 
@@ -412,7 +412,7 @@ else {
   Add-Content -Path $templatename "     type: GitHub"
   Add-Content -Path $templatename -Value ("     endpoint: " + $ghConn)
   Add-Content -Path $templatename "     name: Azure/sap-automation"
-  Add-Content -Path $templatename "     ref: refs/heads/experimental"
+  Add-Content -Path $templatename "     ref: refs/heads/main"
   Add-Content -Path $templatename "   - repository: sap-samples"
   Add-Content -Path $templatename "     type: GitHub"
   Add-Content -Path $templatename -Value ("     endpoint: " + $ghConn)
@@ -468,6 +468,17 @@ $provideSUser = Read-Host "Do you want to provide the S user details y/n?"
 if ($provideSUser -eq 'y') {
   $SUserName = Read-Host "Enter your S User ID"
   $SPassword = Read-Host "Enter your S user password"
+}
+
+
+Write-Host "Creating the variable group SDAF-General" -ForegroundColor Green
+
+$general_group_id = (az pipelines variable-group list --query "[?name=='SDAF-General'].id | [0]" --only-show-errors)
+if ($general_group_id.Length -eq 0) {
+  az pipelines variable-group create --name SDAF-General --variables ANSIBLE_HOST_KEY_CHECKING=false Deployment_Configuration_Path=WORKSPACES Branch=main tf_version="1.3.4" ansible_core_version="2.13" S-Username=$SUserName S-Password=$SPassword --output yaml --authorize true --output none
+  $general_group_id = (az pipelines variable-group list --query "[?name=='SDAF-General'].id | [0]" --only-show-errors)
+  az pipelines variable-group variable update --group-id $general_group_id --name "S-Password" --value $SPassword --secret true --output none --only-show-errors
+
 }
 
 #region Create pipelines
@@ -639,15 +650,22 @@ if ($import_code) {
 }
 
 
-#endregion
-
-Write-Host "Creating the variable group SDAF-General" -ForegroundColor Green
-
-$general_group_id = (az pipelines variable-group list --query "[?name=='SDAF-General'].id | [0]" --only-show-errors)
-if ($general_group_id.Length -eq 0) {
-  az pipelines variable-group create --name SDAF-General --variables ANSIBLE_HOST_KEY_CHECKING=false Deployment_Configuration_Path=WORKSPACES Branch=main S-Username=$SUserName S-Password=$SPassword tf_version=1.3.4 ansible_core_version=2.13 --output yaml --authorize true --output none
-  $general_group_id = (az pipelines variable-group list --query "[?name=='SDAF-General'].id | [0]" --only-show-errors)
+$pipeline_name = 'Update Pipelines'
+$pipeline_id = (az pipelines list --query "[?name=='$pipeline_name'].id | [0]")
+if ($pipeline_id.Length -eq 0) {
+  az pipelines create --name $pipeline_name --branch main --description 'Updates the pipelines' --skip-run --yaml-path "/pipelines/21-update-pipelines.yml" --repository $repo_id --repository-type tfsgit --output none --only-show-errors
 }
+$pipeline_id = (az pipelines list --query "[?name=='$pipeline_name'].id | [0]")
+$this_pipeline_url = $ADO_ORGANIZATION + "/" + [uri]::EscapeDataString($ADO_Project) + "/_build?definitionId=" + $pipeline_id
+$log = ("[" + $pipeline_name + "](" + $this_pipeline_url + ")")
+Add-Content -Path $fname -Value $log
+$bodyText.pipelines += @{
+  id         = $pipeline_id
+  authorized = $true
+}
+
+
+#endregion
 
 Add-Content -Path $fname -Value ""
 Add-Content -Path $fname -Value "### Variable Groups"
@@ -665,11 +683,11 @@ Add-Content -Path $fname -Value ("Web Application:" + $ApplicationName)
 #region App registration
 Write-Host "Creating the App registration in Azure Active Directory" -ForegroundColor Green
 
-$found_appRegistration = (az ad app list --show-mine --query "[?displayName=='$ApplicationName'].displayName | [0]" --only-show-errors)
+$found_appRegistration = (az ad app list --all --filter "startswith(displayName,'$ApplicationName')" --query  "[?displayName=='$ApplicationName'].displayName | [0]" --only-show-errors)
 
 if ($found_appRegistration.Length -ne 0) {
   Write-Host "Found an existing App Registration:" $ApplicationName
-  $ExistingData = (az ad app list --show-mine --query "[?displayName=='$ApplicationName']| [0]" --only-show-errors) | ConvertFrom-Json
+  $ExistingData = (az ad app list --all --filter "startswith(displayName,'$ApplicationName')" --query  "[?displayName=='$ApplicationName']| [0]" --only-show-errors) | ConvertFrom-Json
 
   $APP_REGISTRATION_ID = $ExistingData.appId
 
@@ -711,10 +729,10 @@ $CP_ARM_CLIENT_SECRET = "Please update"
 
 $SPN_Created = $false
 
-$found_appName = (az ad sp list --show-mine --query "[?displayName=='$spn_name'].displayName | [0]" --only-show-errors)
+$found_appName = (az ad sp list --all --filter "startswith(displayName,'$spn_name')" --query "[?displayName=='$spn_name'].displayName | [0]" --only-show-errors)
 if ($found_appName.Length -gt 0) {
   Write-Host "Found an existing Service Principal:" $spn_name
-  $ExistingData = (az ad sp list --show-mine --query "[?displayName=='$spn_name']| [0]" --only-show-errors) | ConvertFrom-Json
+  $ExistingData = (az ad sp list --all --filter "startswith(displayName,'$spn_name')" --query  "[?displayName=='$spn_name']| [0]" --only-show-errors) | ConvertFrom-Json
   Write-Host "Updating the variable group"
 
   $CP_ARM_CLIENT_ID = $ExistingData.appId
@@ -733,7 +751,7 @@ else {
   $SPN_Created = $true
   $Control_plane_SPN_data = (az ad sp create-for-rbac --role "Contributor" --scopes $scopes --name $spn_name --only-show-errors) | ConvertFrom-Json
   $CP_ARM_CLIENT_SECRET = $Control_plane_SPN_data.password
-  $ExistingData = (az ad sp list --show-mine --query "[?displayName=='$spn_name'] | [0]" --only-show-errors) | ConvertFrom-Json
+  $ExistingData = (az ad sp list --all --filter "startswith(displayName,'$spn_name')" --query  "[?displayName=='$spn_name'] | [0]" --only-show-errors) | ConvertFrom-Json
   $CP_ARM_CLIENT_ID = $ExistingData.appId
   $CP_ARM_TENANT_ID = $ExistingData.appOwnerOrganizationId
   $CP_ARM_OBJECT_ID = $ExistingData.Id
@@ -783,14 +801,6 @@ else {
 
 az pipelines variable-group variable update --group-id $Control_plane_groupID --name "WEB_APP_CLIENT_SECRET" --value $WEB_APP_CLIENT_SECRET --secret true --output none --only-show-errors
 
-if ( $provideSUser ) {
-  if ($SPassword.Length -eq 0) {
-    az pipelines variable-group variable update --group-id $general_group_id --name "S-Password" --value $SPassword --secret true --output none --only-show-errors
-  }
-  if ($SUserName.Length -eq 0) {
-    az pipelines variable-group variable update --group-id $general_group_id --name "S-Username" --value $SUserName --output none --only-show-errors
-  }
-}
 
 
 #endregion
@@ -809,11 +819,11 @@ if ($Env:SDAF_WorkloadZone_SPN_NAME.Length -ne 0) {
 }
 
 $SPN_Created = $false
-$found_appName = (az ad sp list --show-mine --query "[?displayName=='$workload_zone_spn_name'].displayName | [0]" --only-show-errors)
+$found_appName = (az ad sp list --all --filter "startswith(displayName,'$workload_zone_spn_name')" --query  "[?displayName=='$workload_zone_spn_name'].displayName | [0]" --only-show-errors)
 
 if ($found_appName.Length -ne 0) {
   Write-Host "Found an existing Service Principal:" $workload_zone_spn_name -ForegroundColor Green
-  $ExistingData = (az ad sp list --show-mine --query "[?displayName=='$workload_zone_spn_name'] | [0]" --only-show-errors) | ConvertFrom-Json
+  $ExistingData = (az ad sp list --all --filter "startswith(displayName,'$workload_zone_spn_name')" --query  "[?displayName=='$workload_zone_spn_name'] | [0]" --only-show-errors) | ConvertFrom-Json
   $ARM_CLIENT_ID = $ExistingData.appId
   $ARM_TENANT_ID = $ExistingData.appOwnerOrganizationId
   $ARM_OBJECT_ID = $ExistingData.Id
@@ -828,7 +838,7 @@ else {
   $SPN_Created = $true
   $Data = (az ad sp create-for-rbac --role="Contributor" --scopes=$workload_zone_scopes --name=$workload_zone_spn_name --only-show-errors) | ConvertFrom-Json
   $ARM_CLIENT_SECRET = $Data.password
-  $ExistingData = (az ad sp list --show-mine --query "[?displayName=='$workload_zone_spn_name'] | [0]" --only-show-errors) | ConvertFrom-Json
+  $ExistingData = (az ad sp list --all --filter "startswith(displayName,'$workload_zone_spn_name')" --query  "[?displayName=='$workload_zone_spn_name'] | [0]" --only-show-errors) | ConvertFrom-Json
   $ARM_CLIENT_ID = $ExistingData.appId
   $ARM_TENANT_ID = $ExistingData.appOwnerOrganizationId
   $ARM_OBJECT_ID = $ExistingData.Id
@@ -899,9 +909,9 @@ else {
   $POOL_NAME_FOUND = (az pipelines pool list --query "[?name=='$Pool_Name'].name | [0]")
   if ($POOL_NAME_FOUND.Length -gt 0) {
     Write-Host "Agent pool" $Pool_Name "already exists" -ForegroundColor Yellow
-    $POOL_ID = (az pipelines pool list --query "[?name=='$Pool_Name'].id | [0]").Replace("""", "")
+    $POOL_ID = (az pipelines pool list --query "[?name=='$Pool_Name'].id | [0]" --output tsv).Replace("""", "")
     Set-Content -Path pool.json -Value (ConvertTo-Json @{name = $Pool_Name; pool = @{ id = $POOL_ID }; projectID = $Project_ID })
-    az devops invoke --area distributedtask --resource queues --http-method POST --api-version "7.1-preview" --in-file .\pool.json --query-parameters authorizePipelines=true --route-parameters project=$Project_ID --output none
+    az devops invoke --area distributedtask --resource queues --http-method POST --api-version "7.1-preview" --in-file .\pool.json --query-parameters authorizePipelines=true --route-parameters project=$Project_ID --output none --only-show-errors
 
   }
   else {
@@ -909,7 +919,8 @@ else {
     Write-Host "Creating agent pool" $Pool_Name -ForegroundColor Green
 
     Set-Content -Path pool.json -Value (ConvertTo-Json @{name = $Pool_Name; autoProvision = $true })
-    az devops invoke --area distributedtask --resource pools --http-method POST --api-version "7.1-preview" --in-file .\pool.json --query-parameters authorizePipelines=true --query id --output none
+    az devops invoke --area distributedtask --resource pools --http-method POST --api-version "7.1-preview" --in-file .\pool.json --query-parameters authorizePipelines=true --query id --output none --only-show-errors
+    $POOL_ID = (az pipelines pool list --query "[?name=='$Pool_Name'].id | [0]" --output tsv).Replace("""", "")
     Write-Host "Agent pool" $Pool_Name "created"
 
   }
