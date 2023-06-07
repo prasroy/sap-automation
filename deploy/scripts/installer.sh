@@ -597,7 +597,7 @@ then
     echo "Error when running Terraform plan" > "${system_config_information}".err
 
     unset TF_DATA_DIR
-    rm
+    rm plan_output.log
     exit $return_value
 fi
 
@@ -1084,6 +1084,18 @@ then
     deployer_public_ip_address=$(terraform -chdir="${terraform_module_directory}" output -no-color -raw deployer_public_ip_address | tr -d \")
     keyvault=$(terraform -chdir="${terraform_module_directory}"  output -no-color -raw deployer_kv_user_name | tr -d \")
 
+    random_id=$(terraform -chdir="${terraform_module_directory}"  output  -no-color -raw random_id_b64 | tr -d \")
+    temp=$(echo "${random_id}" | grep -m1 "Warning")
+    if [ -z "${temp}" ]
+    then
+        temp=$(echo "${random_id}" | grep "Backend reinitialization required")
+        if [ -z "${temp}" ]
+        then
+            save_config_var "deployer_random_id" "${random_id}"
+            return_value=0
+        fi
+    fi
+
     created_resource_group_name=$(terraform -chdir="${terraform_module_directory}"  output -no-color -raw created_resource_group_name | tr -d \")
 
     az deployment group create --resource-group ${created_resource_group_name} --name "ControlPlane_Deployer_${created_resource_group_name}" --template-file "${script_directory}/templates/empty-deployment.json" --output none
@@ -1123,21 +1135,23 @@ then
 
             webapp_id=$(terraform -chdir="${terraform_module_directory}" output -no-color -raw webapp_id | tr -d \")
             if [ -n "${webapp_id}" ] ; then
-            az_var=$(az pipelines variable-group variable list --group-id ${VARIABLE_GROUP_ID} --query "WEBAPP_ID.value")
-            if [ -z ${az_var} ]; then
-                az pipelines variable-group variable create --group-id ${VARIABLE_GROUP_ID} --name WEBAPP_ID --value $webapp_id --output none --only-show-errors
-            else
-                az pipelines variable-group variable update --group-id ${VARIABLE_GROUP_ID} --name WEBAPP_ID --value $webapp_id --output none --only-show-errors
+              az_var=$(az pipelines variable-group variable list --group-id ${VARIABLE_GROUP_ID} --query "WEBAPP_ID.value")
+              if [ -z ${az_var} ]; then
+                  az pipelines variable-group variable create --group-id ${VARIABLE_GROUP_ID} --name WEBAPP_ID --value $webapp_id --output none --only-show-errors
+              else
+                  az pipelines variable-group variable update --group-id ${VARIABLE_GROUP_ID} --name WEBAPP_ID --value $webapp_id --output none --only-show-errors
+              fi
             fi
+            if [ -n "${random_id}" ] ; then
+                az_var=$(az pipelines variable-group variable list --group-id ${VARIABLE_GROUP_ID} --query "DEPLOYER_RANDOM_ID_SEED.value")
+                if [ -z ${az_var} ]; then
+                    az pipelines variable-group variable create --group-id ${VARIABLE_GROUP_ID} --name DEPLOYER_RANDOM_ID_SEED --value "${random_id}" --output none --only-show-errors
+                else
+                    az pipelines variable-group variable update --group-id ${VARIABLE_GROUP_ID} --name DEPLOYER_RANDOM_ID_SEED --value "${random_id}" --output none --only-show-errors
+                fi
             fi
         fi
 
-    fi
-    deployer_extension_ids=$(terraform -chdir="${terraform_module_directory}"  output -no-color -json deployer_extension_ids | jq -r '.[]')
-
-    if [[ -n ${deployer_extension_ids} ]]
-    then
-        az resource delete --ids ${deployer_extension_ids}
     fi
 
    if valid_kv_name "$keyvault" ; then
@@ -1222,6 +1236,19 @@ if [ "${deployment_system}" == sap_library ]
 then
     REMOTE_STATE_SA=$(terraform -chdir="${terraform_module_directory}" output  -no-color -raw remote_state_storage_account_name | tr -d \")
     sapbits_storage_account_name=$(terraform -chdir="${terraform_module_directory}"  output -no-color -raw sapbits_storage_account_name | tr -d \")
+    random_id_b64=$(terraform -chdir="${terraform_module_directory}" output -no-color -raw random_id_b64 | tr -d \")
+    temp=$(echo "${random_id_b64}" | grep -m1 "Warning")
+    if [ -z "${temp}" ]
+    then
+        temp=$(echo "${random_id_b64}" | grep "Backend reinitialization required")
+        if [ -z "${temp}" ]
+        then
+            save_config_var "library_random_id" "${random_id_b64}"
+            return_value=0
+        fi
+    fi
+
+
     if [ 1 == $called_from_ado ] ; then
 
         if [ -n "${sapbits_storage_account_name}" ] ; then
@@ -1232,6 +1259,15 @@ then
                 az pipelines variable-group variable update --group-id ${VARIABLE_GROUP_ID} --name INSTALLATION_MEDIA_ACCOUNT --value "${sapbits_storage_account_name}" --output none --only-show-errors
             fi
         fi
+        if [ -n "${random_id_b64}" ] ; then
+            az_var=$(az pipelines variable-group variable list --group-id ${VARIABLE_GROUP_ID} --query "LIBRARY_RANDOM_ID_SEED.value")
+            if [ -z ${az_var} ]; then
+                az pipelines variable-group variable create --group-id ${VARIABLE_GROUP_ID} --name LIBRARY_RANDOM_ID_SEED --value "${random_id_b64}" --output none --only-show-errors
+            else
+                az pipelines variable-group variable update --group-id ${VARIABLE_GROUP_ID} --name LIBRARY_RANDOM_ID_SEED --value "${random_id_b64}" --output none --only-show-errors
+            fi
+        fi
+
     fi
 
     get_and_store_sa_details "${REMOTE_STATE_SA}" "${system_config_information}"

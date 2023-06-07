@@ -80,7 +80,7 @@ locals {
   db_sizing = local.enable_deployment ? lookup(local.sizes.db, local.anydb_size).storage : []
   db_size   = local.enable_deployment ? lookup(local.sizes.db, local.anydb_size).compute : {}
 
-  anydb_sku = try(local.db_size.vm_size, "Standard_E16_v3")
+  anydb_sku = length(var.database.database_vm_sku) > 0 ? var.database.database_vm_sku : try(local.db_size.vm_size, "Standard_E16_v3")
 
   anydb_ha = try(var.database.high_availability, false)
   db_sid   = try(var.database.instance.sid, lower(substr(var.database.platform, 0, 3)))
@@ -382,8 +382,8 @@ locals {
   zonal_deployment = local.db_zone_count > 0 || local.enable_ultradisk ? true : false
 
   //If we deploy more than one server in zone put them in an availability set
-  use_avset = local.availabilitysets_exist ? (
-    true) : (var.database.use_avset && !local.enable_ultradisk ? (
+  use_avset = local.availabilitysets_exist || var.database.use_avset ? (
+    true) : (!local.enable_ultradisk ? (
       !local.zonal_deployment || (var.database_server_count != local.db_zone_count)) : (
       false
     )
