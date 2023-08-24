@@ -39,6 +39,11 @@ Webapp/SDAF/Properties/PublishProfiles
 Webapp/.vs/ProjectEvaluation
 Webapp/SDAF/Properties/ServiceDependencies
 
-
 # Ignore OS files         - MKD 20221221
 **/.DS_Store
+
+# Additional files to ignore
+owners.txt
+NuGet.config
+# Ignore Python cache directories
+__pycache__
