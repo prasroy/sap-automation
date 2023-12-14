@@ -12,31 +12,15 @@
   ansible.builtin.debug:
     msg:
       - "SAP SID              :        {{ sap_sid }}"
-      - "Instance Number - SCS:        {% if scs_instance_number is defined %}{{ scs_instance_number }}{% endif %}"
-      - "SCS Virtual Hostname :        {% if sap_scs_hostname is defined %}{{ sap_scs_hostname }}{% endif %}"
-      - "DB Hostname          :        {% if sap_db_hostname is defined %}{{ sap_db_hostname }}{% endif %}"
+      - "Instance Number - SCS:        {{ scs_instance_number | default('') }}"
+      - "SCS Virtual Hostname :        {{ sap_scs_hostname | default('') }}"
+      - "DB Hostname          :        {{ sap_db_hostname | default('') }}"
       - "FQDN                 :        {{ sap_fqdn }}"
       - "sapadm UID           :        {{ sapadm_uid }}"
       - "sapsys GID           :        {{ sapsys_gid }}"
       - "<sid>adm UID         :        {{ sidadm_uid }}"
     verbosity:                         2
 # ------------------</DEBUGGING>------------------
-
-
-- name:                                "3.3.1 BoM Template processing: - Create BOM download directories"
-  ansible.builtin.file:
-    path:                              "{{ item.path }}"
-    state:                             directory
-    mode:                              0755
-    owner:                              "{{ orchestration_ansible_user }}"
-  delegate_to:                         localhost
-  become:                              "{{ bom_processing_become }}"
-  become_user:                         "{{ orchestration_ansible_user }}"
-  loop:
-    - path: "{{ download_directory }}"
-    - path: "{{ download_directory }}/tmp"
-    - path: "{{ download_directory }}/bom"
-    - path: "{{ download_directory }}/files"
 
 
 # -------------------------------------+---------------------------------------8
