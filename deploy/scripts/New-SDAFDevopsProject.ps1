@@ -1,3 +1,6 @@
+# Write-Host "<Experimental>..............." -ForegroundColor Cyan
+
+
 function Show-Menu($data) {
   Write-Host "================ $Title ================"
   $i = 1
@@ -15,37 +18,70 @@ function Show-Menu($data) {
 
 $ADO_Organization = $Env:SDAF_ADO_ORGANIZATION
 $ADO_Project = $Env:SDAF_ADO_PROJECT
+$ARM_TENANT_ID = $Env:ARM_TENANT_ID
 $Control_plane_code = $Env:SDAF_CONTROL_PLANE_CODE
-$Workload_zone_code = $Env:SDAF_WORKLOAD_ZONE_CODE
-
 $Control_plane_subscriptionID = $Env:SDAF_ControlPlaneSubscriptionID
-$Workload_zone_subscriptionID = $Env:SDAF_WorkloadZoneSubscriptionID
 $ControlPlaneSubscriptionName = $Env:SDAF_ControlPlaneSubscriptionName
+$Workload_zone_code = $Env:SDAF_WORKLOAD_ZONE_CODE
+$Workload_zone_subscriptionID = $Env:SDAF_WorkloadZoneSubscriptionID
 $Workload_zoneSubscriptionName = $Env:SDAF_WorkloadZoneSubscriptionName
 
-$ARM_TENANT_ID = $Env:ARM_TENANT_ID
+if ($IsWindows) { $pathSeparator = "\" } else { $pathSeparator = "/" }
 #endregion
 
-$versionLabel = "v3.10.1.0"
+$versionLabel = "v3.11.0.0"
 
-# az logout
+az logout
 
-# az account clear
+az account clear
 
-# if ($ARM_TENANT_ID.Length -eq 0) {
-#   az login --output none --only-show-errors
-# }
-# else {
-#   az login --output none --tenant $ARM_TENANT_ID --only-show-errors
-# }
-
-Write-Host ""
-Write-Host ""
-
-if (Test-Path .\start.md) {
-  Write-Host "Removing start.md"
-  Remove-Item .\start.md
+if ($ARM_TENANT_ID.Length -eq 0) {
+  az login --output none --only-show-errors
 }
+else {
+  az login --output none --tenant $ARM_TENANT_ID --only-show-errors
+}
+
+# Check if access to the Azure DevOps organization is available and prompt for PAT if needed
+# Exact permissions required, to be validated, and included in the Read-Host text.
+
+if ($Env:AZURE_DEVOPS_EXT_PAT.Length -gt 0) {
+  Write-Host "Using the provided Personal Access Token (PAT) to authenticate to the Azure DevOps organization $ADO_Organization" -ForegroundColor Yellow
+  try {
+    az devops login --organization $ADO_Organization
+  }
+  catch {
+    $_
+  }
+
+}
+
+$checkPAT = (az devops user list --organization $ADO_Organization --only-show-errors --top 1)
+if ($checkPAT.Length -eq 0) {
+  $env:AZURE_DEVOPS_EXT_PAT = Read-Host "Please enter your Personal Access Token (PAT) with full access to the Azure DevOps organization $ADO_Organization"
+  try {
+    az devops login --organization $ADO_Organization
+  }
+  catch {
+    $_
+  }
+  $verifyPAT = (az devops user list --organization $ADO_Organization --only-show-errors --top 1)
+  if ($verifyPAT.Length -eq 0) {
+    Read-Host -Prompt "Failed to authenticate to the Azure DevOps organization, press <any key> to exit"
+    exit
+  }
+  else {
+    Write-Host "Successfully authenticated to the Azure DevOps organization $ADO_Organization" -ForegroundColor Green
+  }
+}
+else {
+  Write-Host "Successfully authenticated to the Azure DevOps organization $ADO_Organization" -ForegroundColor Green
+}
+
+Write-Host ""
+Write-Host ""
+
+if (Test-Path ".${pathSeparator}start.md") { Write-Host "Removing start.md" ; Remove-Item ".${pathSeparator}start.md" }
 
 if ($Env:SDAF_AuthenticationMethod.Length -eq 0) {
   $Title = "Select the authentication method to use"
@@ -126,7 +162,13 @@ else {
 $ControlPlanePrefix = "SDAF-" + $Control_plane_code
 $WorkloadZonePrefix = "SDAF-" + $Workload_zone_code
 
-$Pool_Name = $ControlPlanePrefix + "-POOL"
+if ($Env:SDAF_POOL_NAME.Length -eq 0) {
+  $Pool_Name = $ControlPlanePrefix + "-POOL"
+}
+else {
+  $Pool_Name = $Env:SDAF_POOL_NAME
+}
+
 
 $ApplicationName = $ControlPlanePrefix + "-configuration-app"
 
@@ -140,16 +182,20 @@ if ($confirmation -ne 'y') {
   $Pool_Name = Read-Host "Enter the name of the agent pool"
 }
 
-$url = ( az devops project list --organization $ADO_Organization --query "value | [0].url")
-if ($url.Length -eq 0) {
-  Write-Error "Could not get the DevOps organization URL"
-  exit
-}
-
 $pipeline_permission_url = ""
 
-$idx = $url.IndexOf("_api")
-$pat_url = ($url.Substring(0, $idx) + "_usersSettings/tokens").Replace("""", "")
+# Commenting this, since ADO_Organization is already validated at the beggining in $checkPAT
+# $url = ( az devops project list --organization $ADO_Organization --query "value | [0].url")
+# if ($url.Length -eq 0) {
+#   Write-Error "Could not get the DevOps organization URL"
+#   exit
+# }
+#
+# $idx = $url.IndexOf("_api")
+# $pat_url = ($url.Substring(0, $idx) + "_usersSettings/tokens").Replace("""", "")
+
+# Get pat_url directly from the $ADO_Organization, avoiding double slashes.
+$pat_url = ($ADO_Organization.TrimEnd('/') + "/_usersSettings/tokens").Replace("""", "")
 
 $import_code = $false
 
@@ -206,9 +252,13 @@ else {
   Write-Host "Using an existing project"
 
   $repo_id = (az repos list --query "[?name=='$ADO_Project'].id | [0]" --out tsv)
+  if ($repo_id.Length -eq 0) {
+    Write-Host "Creating repository '$ADO_Project'" -ForegroundColor Green
+  }
+
   az devops configure --defaults organization=$ADO_ORGANIZATION project=$ADO_PROJECT
 
-  $repo_size = (az repos list --query "[?id=='$repo_id'].size | [0]")
+  $repo_size = (az repos list --query "[?name=='$ADO_Project'].size | [0]")
 
   if ($repo_size -eq 0) {
     Write-Host "Importing the repository from GitHub" -ForegroundColor Green
@@ -697,11 +747,11 @@ Add-Content -Path $fname -Value ("Web Application: " + $ApplicationName)
 #region App registration
 Write-Host "Creating the App registration in Azure Active Directory" -ForegroundColor Green
 
-$found_appRegistration = (az ad app list --all --filter "startswith(displayName,'$ApplicationName')" --query  "[?displayName=='$ApplicationName'].displayName | [0]" --only-show-errors)
+$found_appRegistration = (az ad app list --all --filter "startswith(displayName, '$ApplicationName')" --query  "[?displayName=='$ApplicationName'].displayName | [0]" --only-show-errors)
 
 if ($found_appRegistration.Length -ne 0) {
   Write-Host "Found an existing App Registration:" $ApplicationName
-  $ExistingData = (az ad app list --all --filter "startswith(displayName,'$ApplicationName')" --query  "[?displayName=='$ApplicationName']| [0]" --only-show-errors) | ConvertFrom-Json
+  $ExistingData = (az ad app list --all --filter "startswith(displayName, '$ApplicationName')" --query  "[?displayName=='$ApplicationName']| [0]" --only-show-errors) | ConvertFrom-Json
 
   $APP_REGISTRATION_ID = $ExistingData.appId
 
@@ -717,9 +767,9 @@ else {
   Write-Host "Creating an App Registration for" $ApplicationName -ForegroundColor Green
   Add-Content -Path manifest.json -Value '[{"resourceAppId":"00000003-0000-0000-c000-000000000000","resourceAccess":[{"id":"e1fe6dd8-ba31-4d61-89e7-88639da4683d","type":"Scope"}]}]'
 
-  $APP_REGISTRATION_ID = (az ad app create --display-name $ApplicationName --enable-id-token-issuance true --sign-in-audience AzureADMyOrg --required-resource-access .\manifest.json --query "appId").Replace('"', "")
+  $APP_REGISTRATION_ID = (az ad app create --display-name $ApplicationName --enable-id-token-issuance true --sign-in-audience AzureADMyOrg --required-resource-access ".${pathSeparator}manifest.json" --query "appId").Replace('"', "")
 
-  Remove-Item manifest.json
+  if (Test-Path ".${pathSeparator}manifest.json") { Write-Host "Removing manifest.json" ; Remove-Item ".${pathSeparator}manifest.json" }
 
   $WEB_APP_CLIENT_SECRET = (az ad app credential reset --id $APP_REGISTRATION_ID --append --query "password" --out tsv --only-show-errors)
 }
@@ -746,10 +796,10 @@ if ($authenticationMethod -eq "Service Principal") {
   $SPN_Created = $false
   $bSkip = $true
 
-  $found_appName = (az ad sp list --all --filter "startswith(displayName,'$spn_name')" --query "[?displayName=='$spn_name'].displayName | [0]" --only-show-errors)
+  $found_appName = (az ad sp list --all --filter "startswith(displayName, '$spn_name')" --query "[?displayName=='$spn_name'].displayName | [0]" --only-show-errors)
   if ($found_appName.Length -gt 0) {
     Write-Host "Found an existing Service Principal:" $spn_name
-    $ExistingData = (az ad sp list --all --filter "startswith(displayName,'$spn_name')" --query  "[?displayName=='$spn_name']| [0]" --only-show-errors) | ConvertFrom-Json
+    $ExistingData = (az ad sp list --all --filter "startswith(displayName, '$spn_name')" --query  "[?displayName=='$spn_name']| [0]" --only-show-errors) | ConvertFrom-Json
     Write-Host "Updating the variable group"
 
     $CP_ARM_CLIENT_ID = $ExistingData.appId
@@ -771,7 +821,7 @@ if ($authenticationMethod -eq "Service Principal") {
     $SPN_Created = $true
     $Control_plane_SPN_data = (az ad sp create-for-rbac --role "Contributor" --scopes $scopes --name $spn_name --only-show-errors) | ConvertFrom-Json
     $CP_ARM_CLIENT_SECRET = $Control_plane_SPN_data.password
-    $ExistingData = (az ad sp list --all --filter "startswith(displayName,'$spn_name')" --query  "[?displayName=='$spn_name'] | [0]" --only-show-errors) | ConvertFrom-Json
+    $ExistingData = (az ad sp list --all --filter "startswith(displayName, '$spn_name')" --query  "[?displayName=='$spn_name'] | [0]" --only-show-errors) | ConvertFrom-Json
     $CP_ARM_CLIENT_ID = $ExistingData.appId
     $CP_ARM_TENANT_ID = $ExistingData.appOwnerOrganizationId
     $CP_ARM_OBJECT_ID = $ExistingData.Id
@@ -830,7 +880,7 @@ else {
   Write-Host
 
   Write-Host ""
-  Write-Host "The browser will now open, Please create a service connection with the name 'Control_Plane_Service_Connection'."
+  Write-Host "The browser will now open, Please create an 'Azure Resource Manager' service connection with the name 'Control_Plane_Service_Connection'."
   $connections_url = $ADO_ORGANIZATION + "/" + [uri]::EscapeDataString($ADO_Project) + "/_settings/adminservices"
   Write-Host "URL: " $connections_url
 
@@ -864,11 +914,11 @@ if ($authenticationMethod -eq "Service Principal") {
   Add-Content -path $fname -value ("Workload zone Service Principal: " + $workload_zone_spn_name)
 
   $SPN_Created = $false
-  $found_appName = (az ad sp list --all --filter "startswith(displayName,'$workload_zone_spn_name')" --query  "[?displayName=='$workload_zone_spn_name'].displayName | [0]" --only-show-errors)
+  $found_appName = (az ad sp list --all --filter "startswith(displayName, '$workload_zone_spn_name')" --query  "[?displayName=='$workload_zone_spn_name'].displayName | [0]" --only-show-errors)
 
   if ($found_appName.Length -ne 0) {
     Write-Host "Found an existing Service Principal:" $workload_zone_spn_name -ForegroundColor Green
-    $ExistingData = (az ad sp list --all --filter "startswith(displayName,'$workload_zone_spn_name')" --query  "[?displayName=='$workload_zone_spn_name'] | [0]" --only-show-errors) | ConvertFrom-Json
+    $ExistingData = (az ad sp list --all --filter "startswith(displayName, '$workload_zone_spn_name')" --query  "[?displayName=='$workload_zone_spn_name'] | [0]" --only-show-errors) | ConvertFrom-Json
     $ARM_CLIENT_ID = $ExistingData.appId
     $ARM_TENANT_ID = $ExistingData.appOwnerOrganizationId
     $ARM_OBJECT_ID = $ExistingData.Id
@@ -886,7 +936,7 @@ if ($authenticationMethod -eq "Service Principal") {
     $SPN_Created = $true
     $Data = (az ad sp create-for-rbac --role="Contributor" --scopes=$workload_zone_scopes --name=$workload_zone_spn_name --only-show-errors) | ConvertFrom-Json
     $ARM_CLIENT_SECRET = $Data.password
-    $ExistingData = (az ad sp list --all --filter "startswith(displayName,'$workload_zone_spn_name')" --query  "[?displayName=='$workload_zone_spn_name'] | [0]" --only-show-errors) | ConvertFrom-Json
+    $ExistingData = (az ad sp list --all --filter "startswith(displayName, '$workload_zone_spn_name')" --query  "[?displayName=='$workload_zone_spn_name'] | [0]" --only-show-errors) | ConvertFrom-Json
     $ARM_CLIENT_ID = $ExistingData.appId
     $ARM_TENANT_ID = $ExistingData.appOwnerOrganizationId
     $ARM_OBJECT_ID = $ExistingData.Id
@@ -978,16 +1028,14 @@ if (!$AlreadySet -or $ResetPAT ) {
     Write-Host "Creating agent pool" $Pool_Name -ForegroundColor Green
 
     Set-Content -Path pool.json -Value (ConvertTo-Json @{name = $Pool_Name; autoProvision = $true })
-    az devops invoke --area distributedtask --resource pools --http-method POST --api-version "7.1-preview" --in-file .\pool.json --query-parameters authorizePipelines=true --query id --output none --only-show-errors
+    az devops invoke --area distributedtask --resource pools --http-method POST --api-version "7.1-preview" --in-file ".${pathSeparator}pool.json" --query-parameters authorizePipelines=true --query id --output none --only-show-errors
     $POOL_ID = (az pipelines pool list --query "[?name=='$Pool_Name'].id | [0]" --output tsv)
     Write-Host "Agent pool" $Pool_Name "created"
     $queue_id = (az pipelines queue list --query "[?name=='$Pool_Name'].id | [0]" --output tsv)
 
   }
 
-  if (Test-Path .\pool.json) {
-    Remove-Item .\pool.json
-  }
+  if (Test-Path ".${pathSeparator}pool.json") { Write-Host "Removing pool.json" ; Remove-Item ".${pathSeparator}pool.json" }
 
   # Create header with PAT
   $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes((":{0}" -f $PAT)))
@@ -1068,12 +1116,12 @@ if ($WIKI_NAME_FOUND.Length -gt 0) {
   Write-Host "Wiki SDAF already exists"
   $eTag = (az devops wiki page show --path 'Next steps' --wiki SDAF --query eTag )
   if ($eTag -ne $null) {
-    $page_id = (az devops wiki page update --path 'Next steps' --wiki SDAF --file-path .\start.md --only-show-errors --version $eTag --query page.id)
+    $page_id = (az devops wiki page update --path 'Next steps' --wiki SDAF --file-path ".${pathSeparator}start.md" --only-show-errors --version $eTag --query page.id)
   }
 }
 else {
   az devops wiki create --name SDAF --output none --only-show-errors
-  az devops wiki page create --path 'Next steps' --wiki SDAF --file-path .\start.md --output none --only-show-errors
+  az devops wiki page create --path 'Next steps' --wiki SDAF --file-path ".${pathSeparator}start.md" --output none --only-show-errors
 }
 
 $page_id = (az devops wiki page show --path 'Next steps' --wiki SDAF --query page.id )
@@ -1082,7 +1130,4 @@ $wiki_url = $ADO_ORGANIZATION + "/" + [uri]::EscapeDataString($ADO_Project) + "/
 Write-Host "URL: " $wiki_url
 Start-Process $wiki_url
 
-if (Test-Path .\start.md) {
-  Write-Host "Removing start.md"
-  Remove-Item .\start.md
-}
+if (Test-Path ".${pathSeparator}start.md") { Write-Host "Removing start.md" ; Remove-Item ".${pathSeparator}start.md" }

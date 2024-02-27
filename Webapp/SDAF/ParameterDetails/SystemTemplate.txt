@@ -476,8 +476,18 @@ $$sapmnt_private_endpoint_id$$
 # use_random_id_for_storageaccounts defines if the sapmnt storage account name will have a random suffix
 $$use_random_id_for_storageaccounts$$
 
+#########################################################################################
+#                                                                                       #
+#  ANF                                                                                  #
+#                                                                                       #
+#########################################################################################
+
 # ANF_HANA_use_AVG defines if the ANF volume will be created in an Application Volume Group
 $$ANF_HANA_use_AVG$$
+
+# ANF_HANA_use_Zones defines if the ANF volume will be created in an Availability zones
+$$ANF_HANA_use_Zones$$
+
 
 #########################################################################################
 #                                                                                       #
@@ -850,3 +860,22 @@ $$database_HANA_use_ANF_scaleout_scenario$$
 
 # Defined the standbynode count in a scaleout scenario
 $$stand_by_node_count$$
+
+
+#########################################################################################
+#                                                                                       #
+#  AMS variables                                                                        #
+#                                                                                       #
+#########################################################################################
+
+# If defined, will enable prometheus high availability cluster monitoring
+$$enable_ha_monitoring$$
+
+# If defined, will enable prometheus operating system level monitoring
+$$enable_os_monitoring$$
+
+# If defined, will use the specified Azure Monitor for SAP instance, else will use the AMS instance in the workload zone.
+$$ams_resource_id$$
+
+
+

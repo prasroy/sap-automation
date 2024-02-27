@@ -134,7 +134,7 @@ resource "azurerm_linux_virtual_machine" "scs" {
 
   //If more than one servers are deployed into a single zone put them in an availability set and not a zone
   availability_set_id                  = local.use_scs_avset ? (
-                                           azurerm_availability_set.scs[count.index % max(local.scs_zone_count, 1)].id) : (
+                                           azurerm_availability_set.scs[count.index % max(length(azurerm_availability_set.scs), 1)].id) : (
                                            null
                                          )
 
@@ -239,6 +239,11 @@ resource "azurerm_linux_virtual_machine" "scs" {
                          identity_ids = length(var.application_tier.user_assigned_identity_id) > 0 ? [var.application_tier.user_assigned_identity_id] : null
                        }
                      }
+  lifecycle {
+    ignore_changes = [
+      source_image_id
+    ]
+  }
 
 
 }
@@ -314,7 +319,7 @@ resource "azurerm_windows_virtual_machine" "scs" {
 
   //If more than one servers are deployed into a single zone put them in an availability set and not a zone
   availability_set_id                  = local.use_scs_avset ? (
-                                           azurerm_availability_set.scs[count.index % max(local.scs_zone_count, 1)].id) : (
+                                           azurerm_availability_set.scs[count.index % max(length(azurerm_availability_set.scs), 1)].id) : (
                                            null
                                          )
 
@@ -418,6 +423,11 @@ resource "azurerm_windows_virtual_machine" "scs" {
                                    identity_ids = [var.application_tier.user_assigned_identity_id]
                                  }
                        }
+  lifecycle {
+    ignore_changes = [
+      source_image_id
+    ]
+  }
 
 }
 
@@ -449,6 +459,13 @@ resource "azurerm_managed_disk" "scs" {
                                            null
                                          )
 
+  lifecycle {
+    ignore_changes = [
+      create_option,
+      hyper_v_generation,
+      source_resource_id
+    ]
+  }
 
 }
 
@@ -547,10 +564,6 @@ resource "azurerm_managed_disk" "cluster" {
                                               )
                                             )
                                           ) ? 1 : 0
-  lifecycle {
-    ignore_changes                      = [tags]
-  }
-
   name                                  = format("%s%s%s%s",
                                             var.naming.resource_prefixes.scs_cluster_disk,
                                             local.prefix,
@@ -572,6 +585,14 @@ resource "azurerm_managed_disk" "cluster" {
                                             )) : (
                                             null
                                           )
+  lifecycle {
+    ignore_changes = [
+      create_option,
+      hyper_v_generation,
+      source_resource_id,
+      tags
+    ]
+  }
 }
 
 resource "azurerm_virtual_machine_data_disk_attachment" "cluster" {

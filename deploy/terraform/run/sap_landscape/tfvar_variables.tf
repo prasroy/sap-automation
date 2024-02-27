@@ -272,6 +272,36 @@ variable "anf_subnet_nsg_arm_id"                {
                                                 }
 
 
+#######################################4#######################################8
+#                                                                              #
+#                      AMS Subnet variables                                    #
+#                                                                              #
+#######################################4#######################################8
+
+variable "ams_subnet_name"                       {
+                                                  description = "If provided, the name of the ams subnet"
+                                                  default     = ""
+                                                }
+
+variable "ams_subnet_arm_id"                     {
+                                                  description = "If provided, Azure resource id for the ams subnet"
+                                                  default     = ""
+                                                }
+
+variable "ams_subnet_address_prefix"             {
+                                                  description = "The address prefix for the ams subnet"
+                                                  default     = ""
+                                                }
+
+variable "ams_subnet_nsg_name"                  {
+                                                  description = "If provided, the name of the AMS subnet NSG"
+                                                  default     = ""
+                                                }
+
+variable "ams_subnet_nsg_arm_id"                {
+                                                  description = "If provided, Azure resource id for the AMS subnet NSG"
+                                                  default     = ""
+                                                }
 
 #########################################################################################
 #                                                                                       #
@@ -308,6 +338,11 @@ variable "additional_users_to_add_to_keyvault_policies" {
 variable "keyvault_private_endpoint_id"         {
                                                   description = "Existing private endpoint for key vault"
                                                   default     = ""
+                                                }
+
+variable "soft_delete_retention_days"           {
+                                                  description = "The number of days that items should be retained in the soft delete period"
+                                                  default     = 7
                                                 }
 
 #########################################################################################
@@ -466,9 +501,10 @@ variable "dns_zone_names"                          {
                                                      type        = map(string)
 
                                                      default = {
-                                                                 "file_dns_zone_name"  = "privatelink.file.core.windows.net"
-                                                                 "blob_dns_zone_name"  = "privatelink.blob.core.windows.net"
-                                                                 "vault_dns_zone_name" = "privatelink.vaultcore.azure.net"
+                                                                "file_dns_zone_name"   = "privatelink.file.core.windows.net"
+                                                                "blob_dns_zone_name"   = "privatelink.blob.core.windows.net"
+                                                                "table_dns_zone_name"  = "privatelink.table.core.windows.net"
+                                                                "vault_dns_zone_name"  = "privatelink.vaultcore.azure.net"
                                                                }
                                                    }
 
@@ -533,6 +569,11 @@ variable "ANF_transport_volume_size"               {
                                                      default     = 128
                                                    }
 
+variable "ANF_transport_volume_zone"               {
+                                                     description = "Transport volume availability zone"
+                                                     default     = [""]
+                                                   }
+
 variable "ANF_install_volume_use_existing"         {
                                                      description = "Use existing install volume"
                                                      default     = false
@@ -551,6 +592,12 @@ variable "ANF_install_volume_throughput"           {
 variable "ANF_install_volume_size"                 {
                                                      description = "If defined provides the size of the install volume"
                                                      default     = 1024
+                                                   }
+
+
+variable "ANF_install_volume_zone"                 {
+                                                     description = "Install volume availability zone"
+                                                     default     = [""]
                                                    }
 
 variable "use_AFS_for_shared_storage"              {
@@ -712,3 +759,23 @@ variable "export_transport_path"                   {
                                                       description = "If provided, export mount path for the transport media"
                                                       default     = true
                                                    }
+
+#######################################4#######################################8
+#                                                                              #
+#                      AMS Instance variables                                  #
+#                                                                              #
+#######################################4#######################################8
+
+variable "create_ams_instance"                    {
+                                                    description = "If true, an AMS instance will be created"
+                                                    default     = false
+                                                  }
+
+variable "ams_instance_name"                      {
+                                                    description = "If provided, the name of the AMS instance"
+                                                    default     = ""
+                                                  }
+variable "ams_laws_arm_id"                        {
+                                                    description = "If provided, Azure resource id for the Log analytics workspace in AMS"
+                                                    default     = ""
+                                                  }

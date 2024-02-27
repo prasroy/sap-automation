@@ -200,6 +200,11 @@ variable "short_named_endpoints_nics"           {
                                                    default     = false
                                                  }
 
+variable "public_network_access_enabled"              {
+                                                        description = "Boolean value indicating if public access should be enabled for key vaults and storage"
+                                                        default     = true
+                                                        type        = bool
+                                                      }
 
 
 #########################################################################################
@@ -268,9 +273,10 @@ variable "dns_zone_names"                        {
                                                    description = "Private DNS zone names"
                                                    type        = map(string)
                                                    default = {
-                                                     "file_dns_zone_name"  = "privatelink.file.core.windows.net"
-                                                     "blob_dns_zone_name"  = "privatelink.blob.core.windows.net"
-                                                     "vault_dns_zone_name" = "privatelink.vaultcore.azure.net"
+                                                      "file_dns_zone_name"   = "privatelink.file.core.windows.net"
+                                                      "blob_dns_zone_name"   = "privatelink.blob.core.windows.net"
+                                                      "table_dns_zone_name"  = "privatelink.table.core.windows.net"
+                                                      "vault_dns_zone_name"  = "privatelink.vaultcore.azure.net"
                                                    }
                                                  }
 

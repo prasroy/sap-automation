@@ -191,8 +191,8 @@ resource "azurerm_linux_virtual_machine" "vm_dbnode" {
   //If more than one servers are deployed into a single zone put them in an availability set and not a zone
   availability_set_id                  = local.use_avset && !local.enable_ultradisk ? (
                                            local.availabilitysets_exist ? (
-                                             data.azurerm_availability_set.hdb[count.index % max(local.db_zone_count, 1)].id) : (
-                                             azurerm_availability_set.hdb[count.index % max(local.db_zone_count, 1)].id
+                                             data.azurerm_availability_set.hdb[count.index % max(length(data.azurerm_availability_set.hdb), 1)].id) : (
+                                             azurerm_availability_set.hdb[count.index % max(length(azurerm_availability_set.hdb), 1)].id
                                            )
                                          ) : null
 
@@ -291,6 +291,11 @@ resource "azurerm_linux_virtual_machine" "vm_dbnode" {
                          identity_ids = length(var.database.user_assigned_identity_id) > 0 ? [var.database.user_assigned_identity_id] : null
                        }
                      }
+  lifecycle {
+    ignore_changes = [
+      source_image_id
+    ]
+  }
 
 
 }
@@ -359,6 +364,13 @@ resource "azurerm_managed_disk" "data_disk" {
                                            null
                                          )
   tags                                 = var.tags
+  lifecycle {
+    ignore_changes = [
+      create_option,
+      hyper_v_generation,
+      source_resource_id
+    ]
+  }
 
 }
 
@@ -409,10 +421,6 @@ resource "azurerm_managed_disk" "cluster" {
                                              )
                                            )
                                          ) ? 1 : 0
-  lifecycle {
-    ignore_changes                     = [tags]
-    }
-
   name                                 = format("%s%s%s%s",
                                            var.naming.resource_prefixes.database_cluster_disk,
                                            local.prefix,
@@ -432,6 +440,14 @@ resource "azurerm_managed_disk" "cluster" {
                                            azurerm_linux_virtual_machine.vm_dbnode[local.data_disk_list[count.index].vm_index].zone) : (
                                            null
                                          )
+  lifecycle {
+    ignore_changes = [
+      create_option,
+      hyper_v_generation,
+      source_resource_id,
+      tags
+    ]
+  }
 
 }
 

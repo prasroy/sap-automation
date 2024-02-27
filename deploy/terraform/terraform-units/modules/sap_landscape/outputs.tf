@@ -1,5 +1,12 @@
 #######################################4#######################################8
 #                                                                              #
+# This file contains the output variables for the SAP landscape module         #
+#                                                                              #
+#######################################4#######################################8
+
+
+#######################################4#######################################8
+#                                                                              #
 #                             Resource Group                                   #
 #                                                                              #
 #######################################4#######################################8
@@ -105,6 +112,16 @@ output "anf_subnet_id"                          {
                                                                     try(azurerm_subnet.anf[0].id, ""))) : (
                                                                   ""
                                                                 )
+                                                }
+
+output "ams_subnet_id"                          {
+                                                  description = "Azure resource identifier for the ams subnet"
+                                                  value       = local.ams_subnet_defined ? (
+                                                                  local.ams_subnet_existing ? (
+                                                                    var.infrastructure.vnets.sap.subnet_ams.arm_id) : (
+                                                                    try(azurerm_subnet.ams[0].id, ""))) : (
+                                                                  ""
+                                                                  )
                                                 }
 
 output "admin_nsg_id"                           {
@@ -502,4 +519,15 @@ output "iSCSI_servers"                          {
                                                           ])) : (
                                                             []
                                                           )
+                                                }
+
+###############################################################################
+#                                                                             #
+#                            AMS resource properties                          #
+#                                                                             #
+###############################################################################
+
+output "ams_resource_id"                        {
+                                                  description = "Azure resource identifier for the AMS resource"
+                                                  value       = local.create_ams_instance ? azapi_resource.ams_instance[0].id : ""
                                                 }

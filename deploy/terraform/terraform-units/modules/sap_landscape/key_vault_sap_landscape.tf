@@ -19,7 +19,7 @@ resource "azurerm_key_vault" "kv_user" {
                                            azurerm_resource_group.resource_group[0].name
                                          )
   tenant_id                            = local.service_principal.tenant_id
-  soft_delete_retention_days           = 7
+  soft_delete_retention_days           = var.soft_delete_retention_days
   purge_protection_enabled             = var.enable_purge_control_for_keyvaults
   sku_name                             = "standard"
   enable_rbac_authorization            = var.enable_rbac_authorization_for_keyvault
@@ -98,7 +98,7 @@ resource "azurerm_key_vault_access_policy" "kv_user" {
   provider                             = azurerm.main
   count                                = (var.key_vault.exists || var.enable_rbac_authorization_for_keyvault) ? (
                                            0) : (
-                                           (var.deployer_tfstate.deployer_uai.principal_id == local.service_principal.object_id) ? 0 : 1
+                                           (length(var.deployer_tfstate) > 0 ? var.deployer_tfstate.deployer_uai.principal_id == local.service_principal.object_id : false) ? 0 : 1
                                          )
   key_vault_id                         = local.user_keyvault_exist ? local.user_key_vault_id : azurerm_key_vault.kv_user[0].id
   tenant_id                            = local.service_principal.tenant_id

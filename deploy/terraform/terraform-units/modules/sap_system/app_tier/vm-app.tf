@@ -132,7 +132,7 @@ resource "azurerm_linux_virtual_machine" "app" {
   availability_set_id                  = var.application_tier.app_use_avset ? (
                                            length(var.application_tier.avset_arm_ids) > 0 ? (
                                              var.application_tier.avset_arm_ids[count.index % max(length(var.application_tier.avset_arm_ids), 1)]) : (
-                                             azurerm_availability_set.app[count.index % max(length(var.application_tier.avset_arm_ids), 1)].id
+                                             azurerm_availability_set.app[count.index % max(length(azurerm_availability_set.app), 1)].id
                                            )) : (
                                            null
                                          )
@@ -235,6 +235,12 @@ resource "azurerm_linux_virtual_machine" "app" {
                                    identity_ids = [var.application_tier.user_assigned_identity_id]
                                  }
                        }
+  lifecycle {
+    ignore_changes = [
+      source_image_id
+    ]
+  }
+
 }
 
 # Create the Windows Application VM(s)
@@ -263,10 +269,10 @@ resource "azurerm_windows_virtual_machine" "app" {
                                         )
 
   //If more than one servers are deployed into a single zone put them in an availability set and not a zone
-  availability_set_id                  = local.use_app_avset ? (
+  availability_set_id                  = var.application_tier.app_use_avset ? (
                                            length(var.application_tier.avset_arm_ids) > 0 ? (
-                                             var.application_tier.avset_arm_ids[count.index % max(local.app_zone_count, 1)]) : (
-                                             azurerm_availability_set.app[count.index % max(local.app_zone_count, 1)].id
+                                             var.application_tier.avset_arm_ids[count.index % max(length(var.application_tier.avset_arm_ids), 1)]) : (
+                                             azurerm_availability_set.app[count.index % max(length(azurerm_availability_set.app), 1)].id
                                            )) : (
                                            null
                                          )
@@ -355,6 +361,12 @@ resource "azurerm_windows_virtual_machine" "app" {
                                    identity_ids = [var.application_tier.user_assigned_identity_id]
                                  }
                        }
+  lifecycle {
+    ignore_changes = [
+      // Ignore changes to computername
+      source_image_id
+    ]
+  }
 
 }
 
@@ -383,6 +395,15 @@ resource "azurerm_managed_disk" "app" {
                                            )
                                          )
   tags                                 = var.tags
+
+  lifecycle {
+    ignore_changes = [
+      create_option,
+      hyper_v_generation,
+      source_resource_id
+    ]
+  }
+
 }
 
 resource "azurerm_virtual_machine_data_disk_attachment" "app" {

@@ -1,3 +1,10 @@
+#######################################4#######################################8
+#                                                                              #
+# This file contains the input variables for the SAP landscape module          #
+#                                                                              #
+#######################################4#######################################8
+
+
 
 #######################################4#######################################8
 #                                                                              #
@@ -110,6 +117,8 @@ variable "enable_purge_control_for_keyvaults"           { description = "Disable
 variable "enable_rbac_authorization_for_keyvault"       { description = "Enables RBAC authorization for Azure keyvault" }
 
 variable "keyvault_private_endpoint_id"                 { description = "Existing private endpoint for key vault" }
+
+variable "soft_delete_retention_days"                   { description = "The number of days that items should be retained in the soft delete period" }
 
 
 #########################################################################################
@@ -241,9 +250,10 @@ variable "dns_zone_names"                                {
                                                            description = "Private DNS zone names"
                                                            type        = map(string)
                                                            default = {
-                                                                       "file_dns_zone_name"  = "privatelink.file.core.windows.net"
-                                                                       "blob_dns_zone_name"  = "privatelink.blob.core.windows.net"
-                                                                       "vault_dns_zone_name" = "privatelink.vaultcore.azure.net"
+                                                                      "file_dns_zone_name"   = "privatelink.file.core.windows.net"
+                                                                      "blob_dns_zone_name"   = "privatelink.blob.core.windows.net"
+                                                                      "table_dns_zone_name"  = "privatelink.table.core.windows.net"
+                                                                      "vault_dns_zone_name"  = "privatelink.vaultcore.azure.net"
                                                                      }
                                                          }
 

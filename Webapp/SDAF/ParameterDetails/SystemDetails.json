@@ -1811,6 +1811,15 @@
         "Display": 2
       },
       {
+        "Name": "ANF_HANA_use_Zones",
+        "Required": false,
+        "Description": "defines if the ANF volume(s) will be deployed in availability zones",
+        "Type": "checkbox",
+        "Options": [],
+        "Overrules": "",
+        "Display": 2
+      },
+      {
         "Name": "database_HANA_use_ANF_scaleout_scenario",
         "Required": false,
         "Description": "If true, the database tier will be configured for scaleout scenario.",
@@ -2210,6 +2219,39 @@
         "Options": [],
         "Overrules": "",
         "Display": 3
+      }
+    ]
+  },
+  {
+    "Section": "Azure Monitor support",
+    "Link": "https://learn.microsoft.com/en-us/azure/sap/automation/automation-configure-system",
+    "Parameters": [
+      {
+        "Name": "ams_resource_id",
+        "Required": false,
+        "Description": "Defines the Azure resource id for the Log analytics workspace in AMS",
+        "Type": "lookup",
+        "Options": [],
+        "Overrules": "",
+        "Display": 2
+      },
+      {
+        "Name": "enable_ha_monitoring",
+        "Required": false,
+        "Description": "Enables prometheus high availability cluster monitoring.",
+        "Type": "checkbox",
+        "Options": [],
+        "Overrules": "",
+        "Display": 2
+      },
+      {
+        "Name": "enable_os_monitoring",
+        "Required": false,
+        "Description": "Enable prometheus operating system level monitoring.",
+        "Type": "checkbox",
+        "Options": [],
+        "Overrules": "",
+        "Display": 2
       }
     ]
   },

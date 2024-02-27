@@ -120,12 +120,12 @@ variable "firewall_deployment"                  {
 
 variable "firewall_rule_subnets"                {
                                                   description = "List of subnets that are part of the firewall rule"
-                                                  default     = null
+                                                  default     = []
                                                 }
 
 variable "firewall_allowed_ipaddresses"         {
                                                   description = "List of allowed IP addresses to be part of the firewall rule"
-                                                  default     = null
+                                                  default     = []
                                                 }
 
 #######################################4#######################################8
@@ -340,6 +340,11 @@ variable "set_secret_expiry"                          {
                                                         type        = bool
                                                       }
 
+variable "soft_delete_retention_days"                 {
+                                                        description = "The number of days that items should be retained in the soft delete period"
+                                                        default     = 7
+                                                      }
+
 #######################################4#######################################8
 #                                                                              #
 #  Miscallaneous settings                                                      #
@@ -438,9 +443,10 @@ variable "dns_zone_names"                             {
                                                         type        = map(string)
 
                                                         default = {
-                                                          "file_dns_zone_name"  = "privatelink.file.core.windows.net"
-                                                          "blob_dns_zone_name"  = "privatelink.blob.core.windows.net"
-                                                          "vault_dns_zone_name" = "privatelink.vaultcore.azure.net"
+                                                          "file_dns_zone_name"   = "privatelink.file.core.windows.net"
+                                                          "blob_dns_zone_name"   = "privatelink.blob.core.windows.net"
+                                                          "table_dns_zone_name"  = "privatelink.table.core.windows.net"
+                                                          "vault_dns_zone_name"  = "privatelink.vaultcore.azure.net"
                                                         }
                                                       }
 
